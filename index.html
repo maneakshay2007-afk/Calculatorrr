@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Secret Vault Pro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: #000; color: white; height: 100vh; overflow: hidden; user-select: none; }
+
+        /* Screens */
+        .screen { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; display: none; flex-direction: column; }
+        .active-screen { display: flex; }
+
+        /* Setup Screen */
+        #setupScreen { background: #1c1c1e; justify-content: center; align-items: center; text-align: center; padding: 20px; }
+        input[type="number"] { padding: 15px; font-size: 24px; width: 80%; margin: 20px 0; border-radius: 12px; border: 1px solid #333; background: #2c2c2e; color: white; outline: none; text-align: center; letter-spacing: 5px; }
+        .btn { padding: 15px 40px; font-size: 18px; background: #0a84ff; color: white; border: none; border-radius: 12px; font-weight: bold; width: 80%; }
+
+        /* Calculator Screen */
+        #calcScreen { justify-content: flex-end; padding-bottom: 20px; }
+        #display { width: 100%; height: 120px; color: white; font-size: 70px; font-weight: 300; text-align: right; padding: 0 30px; display: flex; align-items: flex-end; justify-content: flex-end; word-break: break-all; margin-bottom: 10px; }
+        .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; padding: 0 20px; width: 100%; }
+        .key { aspect-ratio: 1; font-size: 32px; background: #333333; color: white; border: none; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; }
+        .key:active { background: #737373; }
+        .key.top { background: #a5a5a5; color: black; font-size: 28px; }
+        .key.op { background: #ff9f0a; color: white; font-size: 36px; }
+        .key.zero { grid-column: span 2; aspect-ratio: auto; border-radius: 40px; justify-content: flex-start; padding-left: 30px; }
+
+        /* Hidden Album Screen */
+        #hiddenScreen { background: #000; position: relative; }
+        .top-bar { width: 100%; padding: 20px; padding-top: 40px; background: #1c1c1e; display: flex; justify-content: space-between; align-items: center; font-size: 24px; font-weight: bold; border-bottom: 1px solid #333; z-index: 20;}
+        
+        /* Selection Action Bar (Hidden by default) */
+        #selectionBar { position: absolute; top: 0; left: 0; width: 100%; padding: 20px; padding-top: 40px; background: #1c1c1e; display: none; justify-content: space-between; align-items: center; z-index: 30; border-bottom: 1px solid #333; }
+        .action-icon { font-size: 24px; padding: 10px; color: #0a84ff; }
+        .action-icon.danger { color: #ff453a; }
+
+        #mediaContainer { width: 100%; padding: 15px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; overflow-y: auto; height: calc(100vh - 100px); align-content: start; }
+        .media-item-box { width: 100%; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: #2c2c2e; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: 0.2s; }
+        .media-item { width: 100%; height: 100%; object-fit: cover; }
+        .play-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 30px; color: rgba(255,255,255,0.8); pointer-events: none; }
+        
+        /* Selection Overlay */
+        .check-overlay { position: absolute; top: 5px; right: 5px; width: 25px; height: 25px; border-radius: 50%; border: 2px solid white; background: rgba(0,0,0,0.4); display: none; justify-content: center; align-items: center; color: white; font-size: 16px; font-weight: bold; }
+        .selected-item { transform: scale(0.9); border: 3px solid #0a84ff; }
+        .selected-item .check-overlay { display: flex; background: #0a84ff; border: none; }
+
+        #addBtn { position: fixed; bottom: 40px; right: 30px; width: 65px; height: 65px; background: #0a84ff; color: white; border-radius: 50%; font-size: 40px; display: flex; justify-content: center; align-items: center; box-shadow: 0 5px 15px rgba(10, 132, 255, 0.4); z-index: 10; transition: 0.2s; }
+        #addBtn:active { transform: scale(0.9); }
+        #fileInput { display: none; }
+
+        /* Modals */
+        .overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; flex-direction: column; backdrop-filter: blur(5px); }
+        .alert-box { background: #1c1c1e; width: 85%; padding: 25px; border-radius: 20px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .alert-box h3 { color: #ff9f0a; margin-bottom: 15px; }
+        .alert-box.danger h3 { color: #ff453a; }
+        .alert-box p { color: #ccc; font-size: 16px; margin-bottom: 20px; line-height: 1.5; }
+        .modal-btns { display: flex; gap: 10px; }
+        .alert-box button { flex: 1; padding: 12px; border-radius: 10px; font-size: 16px; font-weight: bold; border: none; }
+        .btn-primary { background: #0a84ff; color: white; }
+        .btn-danger { background: #ff453a; color: white; }
+        .btn-cancel { background: #333; color: white; }
+
+        #viewScreen { background: #000; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; position: relative; }
+        #viewMediaContent { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .close-view { position: absolute; top: 40px; right: 20px; background: rgba(255,255,255,0.2); padding: 10px 20px; border-radius: 20px; color: white; font-weight: bold; z-index: 10; }
+        #loadingMsg { display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; color: white; font-size: 14px; z-index: 200; }
+    </style>
+</head>
+<body>
+
+    <div id="loadingMsg">Processing... please wait</div>
+
+    <div id="setupScreen" class="screen">
+        <h2 style="font-size: 28px; margin-bottom: 10px;">Set Secret PIN</h2>
+        <p style="color: #8e8e93; margin-bottom: 30px;">Enter a PIN to secure your hidden files.</p>
+        <input type="number" id="newPwd" placeholder="e.g. 1234">
+        <button class="btn" onclick="savePassword()">Confirm PIN</button>
+    </div>
+
+    <div id="calcScreen" class="screen">
+        <div id="display">0</div>
+        <div class="keypad">
+            <div class="key top" onclick="pressKey('C')">AC</div>
+            <div class="key top" onclick="pressKey('reset')">⌫</div>
+            <div class="key top" onclick="pressKey('%')">%</div>
+            <div class="key op" onclick="pressKey('/')">÷</div>
+            <div class="key" onclick="pressKey('7')">7</div>
+            <div class="key" onclick="pressKey('8')">8</div>
+            <div class="key" onclick="pressKey('9')">9</div>
+            <div class="key op" onclick="pressKey('*')">×</div>
+            <div class="key" onclick="pressKey('4')">4</div>
+            <div class="key" onclick="pressKey('5')">5</div>
+            <div class="key" onclick="pressKey('6')">6</div>
+            <div class="key op" onclick="pressKey('-')">−</div>
+            <div class="key" onclick="pressKey('1')">1</div>
+            <div class="key" onclick="pressKey('2')">2</div>
+            <div class="key" onclick="pressKey('3')">3</div>
+            <div class="key op" onclick="pressKey('+')">+</div>
+            <div class="key zero" onclick="pressKey('0')">0</div>
+            <div class="key" onclick="pressKey('.')">.</div>
+            <div class="key op" onclick="pressKey('=')">=</div>
+        </div>
+    </div>
+
+    <div id="hiddenScreen" class="screen">
+        <div class="top-bar" id="normalBar">
+            <span>Secret Vault</span>
+            <span style="color: #ff453a; font-size: 18px; padding: 5px 10px; background: rgba(255,69,58,0.2); border-radius: 10px;" onclick="lockApp()">Lock App</span>
+        </div>
+        
+        <div id="selectionBar">
+            <span class="action-icon" onclick="cancelSelection()">✖ Cancel</span>
+            <span id="selectCount" style="font-weight: bold;">1 Selected</span>
+            <div>
+                <span class="action-icon" onclick="downloadSelected()">⬇️</span>
+                <span class="action-icon danger" onclick="confirmDelete()">🗑️</span>
+            </div>
+        </div>
+
+        <div id="mediaContainer"></div>
+        <input type="file" id="fileInput" accept="image/*,video/*" multiple onchange="importMedia(event)">
+        <div id="addBtn" onclick="document.getElementById('fileInput').click()">+</div>
+    </div>
+
+    <div id="deleteModal" class="overlay">
+        <div class="alert-box danger">
+            <h3>🗑️ Delete Permanently?</h3>
+            <p>File will be removed permanently. You won't be able to access it later.</p>
+            <div class="modal-btns">
+                <button class="btn-cancel" onclick="document.getElementById('deleteModal').style.display='none'">Cancel</button>
+                <button class="btn-danger" onclick="executeDelete()">Yes, Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="viewModal" class="overlay">
+        <div class="close-view" onclick="closeView()">Close ✖</div>
+        <div id="viewScreen"></div>
+    </div>
+
+    <script>
+        // --- DATABASE SETUP (Permanent Storage) ---
+        let db;
+        const request = indexedDB.open("SecretVaultDB", 1);
+        
+        request.onupgradeneeded = function(event) {
+            db = event.target.result;
+            if (!db.objectStoreNames.contains('media')) {
+                db.createObjectStore('media', { keyPath: 'id', autoIncrement: true });
+            }
+        };
+        request.onsuccess = function(event) { db = event.target.result; };
+
+        // --- CALCULATOR LOGIC ---
+        let secretCode = localStorage.getItem("secretCalcPwd");
+        let calcInput = "";
+        let displayEl = document.getElementById("display");
+
+        if (!secretCode) document.getElementById("setupScreen").classList.add("active-screen");
+        else document.getElementById("calcScreen").classList.add("active-screen");
+
+        function savePassword() {
+            let pwd = document.getElementById("newPwd").value;
+            if (pwd.length < 3) return alert("PIN must be at least 3 digits!");
+            localStorage.setItem("secretCalcPwd", pwd);
+            secretCode = pwd;
+            document.getElementById("setupScreen").classList.remove("active-screen");
+            document.getElementById("calcScreen").classList.add("active-screen");
+        }
+
+        function pressKey(key) {
+            if (key === 'C') { calcInput = ""; displayEl.innerText = "0"; } 
+            else if (key === 'reset') { calcInput = calcInput.slice(0, -1); displayEl.innerText = calcInput || "0"; } 
+            else if (key === '=') {
+                if (calcInput === secretCode) openHiddenAlbum();
+                else if (calcInput === "1234567890") resetPassword();
+                else {
+                    try { let result = eval(calcInput); displayEl.innerText = result; calcInput = result.toString(); } 
+                    catch (e) { displayEl.innerText = "Error"; calcInput = ""; }
+                }
+            } else { calcInput += key; displayEl.innerText = calcInput; }
+        }
+
+        function openHiddenAlbum() {
+            document.getElementById("calcScreen").classList.remove("active-screen");
+            document.getElementById("hiddenScreen").classList.add("active-screen");
+            calcInput = ""; displayEl.innerText = "0";
+            cancelSelection();
+            loadMediaFromDB(); 
+        }
+
+        function lockApp() {
+            document.getElementById("hiddenScreen").classList.remove("active-screen");
+            document.getElementById("calcScreen").classList.add("active-screen");
+            document.getElementById("mediaContainer").innerHTML = ""; 
+        }
+
+        function resetPassword() {
+            if (confirm("Do you want to reset your PIN?")) {
+                localStorage.removeItem("secretCalcPwd"); secretCode = null;
+                calcInput = ""; displayEl.innerText = "0";
+                document.getElementById("calcScreen").classList.remove("active-screen");
+                document.getElementById("setupScreen").classList.add("active-screen");
+            }
+        }
+
+        // --- MEDIA IMPORT & RENDER ---
+        function importMedia(event) {
+            let files = event.target.files;
+            if(files.length === 0) return;
+            
+            document.getElementById('loadingMsg').style.display = 'block';
+
+            let filesProcessed = 0;
+            for (let i = 0; i < files.length; i++) {
+                let file = files[i];
+                let type = file.type.startsWith("image/") ? 'image' : 'video';
+                
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    let base64Data = e.target.result;
+                    let transaction = db.transaction(['media'], 'readwrite');
+                    let store = transaction.objectStore('media');
+                    let item = { data: base64Data, type: type, name: file.name };
+                    
+                    let request = store.add(item);
+                    request.onsuccess = function(e) {
+                        addMediaToUI(e.target.result, base64Data, type, file.name);
+                        filesProcessed++;
+                        if(filesProcessed === files.length) document.getElementById('loadingMsg').style.display = 'none';
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+            event.target.value = ""; 
+        }
+
+        function loadMediaFromDB() {
+            let container = document.getElementById('mediaContainer');
+            container.innerHTML = ''; 
+
+            let transaction = db.transaction(['media'], 'readonly');
+            let store = transaction.objectStore('media');
+            let request = store.getAll();
+
+            request.onsuccess = function(event) {
+                let items = event.target.result;
+                items.forEach(item => {
+                    addMediaToUI(item.id, item.data, item.type, item.name);
+                });
+            };
+        }
+
+        // --- LONG PRESS & SELECTION LOGIC ---
+        let isSelectionMode = false;
+        let selectedItems = new Set();
+        let longPressTimer;
+
+        function addMediaToUI(id, dataUrl, type, name) {
+            let container = document.getElementById('mediaContainer');
+            let box = document.createElement("div");
+            box.className = "media-item-box";
+            box.dataset.id = id;
+            box.dataset.url = dataUrl;
+            box.dataset.name = name;
+            box.dataset.type = type;
+
+            // Touch events for Long Press
+            box.addEventListener('touchstart', (e) => {
+                if(!isSelectionMode) {
+                    longPressTimer = setTimeout(() => {
+                        enableSelectionMode(box, id);
+                    }, 500); // 500ms long press
+                }
+            });
+            box.addEventListener('touchend', () => { clearTimeout(longPressTimer); });
+            box.addEventListener('touchmove', () => { clearTimeout(longPressTimer); });
+
+            // Click handling (View or Select)
+            box.onclick = (e) => {
+                e.preventDefault();
+                if(isSelectionMode) {
+                    toggleSelect(box, id);
+                } else {
+                    showFullscreenView(dataUrl, type);
+                }
+            };
+
+            let elem;
+            if (type === 'image') {
+                elem = document.createElement("img");
+                elem.src = dataUrl;
+                elem.className = "media-item";
+            } else {
+                elem = document.createElement("video");
+                elem.src = dataUrl;
+                elem.className = "media-item";
+                let playIcon = document.createElement("div");
+                playIcon.className = "play-icon";
+                playIcon.innerHTML = "▶️";
+                box.appendChild(playIcon);
+            }
+            
+            // Selection Checkmark Overlay
+            let checkOverlay = document.createElement("div");
+            checkOverlay.className = "check-overlay";
+            checkOverlay.innerHTML = "✓";
+            box.appendChild(checkOverlay);
+            
+            box.appendChild(elem);
+            container.appendChild(box);
+        }
+
+        function enableSelectionMode(box, id) {
+            isSelectionMode = true;
+            document.getElementById('normalBar').style.display = 'none';
+            document.getElementById('selectionBar').style.display = 'flex';
+            document.getElementById('addBtn').style.display = 'none';
+            toggleSelect(box, id);
+        }
+
+        function toggleSelect(box, id) {
+            if(selectedItems.has(id)) {
+                selectedItems.delete(id);
+                box.classList.remove('selected-item');
+            } else {
+                selectedItems.add(id);
+                box.classList.add('selected-item');
+            }
+            
+            document.getElementById('selectCount').innerText = selectedItems.size + " Selected";
+            
+            if(selectedItems.size === 0) cancelSelection();
+        }
+
+        function cancelSelection() {
+            isSelectionMode = false;
+            selectedItems.clear();
+            document.querySelectorAll('.media-item-box').forEach(box => box.classList.remove('selected-item'));
+            document.getElementById('normalBar').style.display = 'flex';
+            document.getElementById('selectionBar').style.display = 'none';
+            document.getElementById('addBtn').style.display = 'flex';
+        }
+
+        // --- DOWNLOAD TO GALLERY PROPERLY (Blob Fix) ---
+        function base64ToBlob(base64Data, contentType) {
+            contentType = contentType || '';
+            let sliceSize = 1024;
+            let byteCharacters = atob(base64Data.split(',')[1]);
+            let byteArrays = [];
+
+            for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+                let slice = byteCharacters.slice(offset, offset + sliceSize);
+                let byteNumbers = new Array(slice.length);
+                for (let i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
+                }
+                let byteArray = new Uint8Array(byteNumbers);
+                byteArrays.push(byteArray);
+            }
+            return new Blob(byteArrays, {type: contentType});
+        }
+
+        function downloadSelected() {
+            document.getElementById('loadingMsg').style.display = 'block';
+            document.getElementById('loadingMsg').innerText = "Downloading...";
+            
+            selectedItems.forEach(id => {
+                let box = document.querySelector(`.media-item-box[data-id="${id}"]`);
+                let dataUrl = box.dataset.url;
+                let filename = box.dataset.name;
+                
+                // Extract MIME type from Base64
+                let mimeType = dataUrl.split(';')[0].split(':')[1];
+                let blob = base64ToBlob(dataUrl, mimeType);
+                let blobUrl = URL.createObjectURL(blob);
+                
+                let a = document.createElement('a'); 
+                a.href = blobUrl; 
+                a.download = "SecretVault_" + filename;
+                document.body.appendChild(a); 
+                a.click(); 
+                document.body.removeChild(a);
+                
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+            });
+            
+            setTimeout(() => {
+                document.getElementById('loadingMsg').style.display = 'none';
+                cancelSelection();
+            }, 500);
+        }
+
+        // --- PERMANENT DELETE ---
+        function confirmDelete() {
+            if(selectedItems.size > 0) {
+                document.getElementById('deleteModal').style.display = 'flex';
+            }
+        }
+
+        function executeDelete() {
+            document.getElementById('deleteModal').style.display = 'none';
+            
+            let transaction = db.transaction(['media'], 'readwrite');
+            let store = transaction.objectStore('media');
+            
+            selectedItems.forEach(id => {
+                store.delete(id); // Delete from DB
+            });
+            
+            transaction.oncomplete = function() {
+                cancelSelection();
+                loadMediaFromDB(); // Reload UI
+            };
+        }
+
+        // --- FULLSCREEN VIEW ---
+        function showFullscreenView(url, type) {
+            let viewContainer = document.getElementById('viewScreen');
+            viewContainer.innerHTML = ''; 
+            if (type === 'image') {
+                let img = document.createElement('img'); img.src = url; img.id = 'viewMediaContent';
+                viewContainer.appendChild(img);
+            } else {
+                let vid = document.createElement('video'); vid.src = url; vid.id = 'viewMediaContent';
+                vid.controls = true; vid.autoplay = true; viewContainer.appendChild(vid);
+            }
+            document.getElementById('viewModal').style.display = 'flex';
+        }
+
+        function closeView() {
+            document.getElementById('viewScreen').innerHTML = ''; 
+            document.getElementById('viewModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
